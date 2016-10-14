@@ -4,6 +4,8 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
+include_once ("DB.php");
+
 //echo "hla";
 $test_data= $_GET["data"];
 $ball = new GuessBall($test_data);
@@ -12,86 +14,58 @@ echo $ball->guess();
 class GuessBall{
 		
 	private $data;	
-		
+	private $db;
+
 	function __construct($data){
 	
 		$this->data=$data;
+		$this->db = new DB("localhost", "root", "root", "guessing");
 	
 	}
 
 	function guess(){
 
-		$data = explode(" ",$this->data);
-		//return json_encode($data);
-		
-				
-		
-		$servername = "localhost";
-		$username = "root";
-		$password = "hnhnhn";
-		$dbname = "guessing";
-
-		// Create connection
-		$conn = new mysqli($servername, $username, $password, $dbname);
-		// Check connection
-		if ($conn->connect_error) {
-		    die("Connection failed: " . $conn->connect_error);
+		$data = self::monoguess();
+		foreach($data["action"] as &$d){
+			$d = self::getAction(intval($d["object"]));
 		}
-		$res=array();
-		foreach($data as $d){
-		
-			$sql = "SELECT * FROM mono_guess where keyword='".$d."'";
+		return json_encode($data);
 
-			$result = $conn->query($sql);
+	}
+
+	private function monoguess(){
+		$res = array("action"=>array(), "objects"=>array());
+		foreach(explode(" ",$this->data) as $d){
+
+			$sql = "SELECT * FROM mono_guess where keyword='$d'";
+
+			$result = $this->db->select($sql);
 			if ($result->num_rows > 0) {
-			    // output data of each row
-			    while($row = $result->fetch_assoc()) {
-				$res[] =array("object" => $row["object"], "type" => $row["type"]);
-			    }
-			} else {
-
-				
-			    $res[] =array("object" => null, "type" => null);
-			}
-
-		}
-
-//var_dump($res);die();
-		
-		foreach($res as &$r){
-			if($r["type"]!=null){		
-				if($r["type"]=="action"){
-					$table = "actions";
-					$key = array("action");
-				}else{
-					$table="objects";
-					$key = array("kind", "val");
-				}	
-				$sql = "SELECT * FROM $table where id='".$r["object"]."'";	
-
-		
-				$result = $conn->query($sql);
-				if ($result->num_rows > 0) {
-				    // output data of each row
-				    while($row = $result->fetch_assoc()) {
-					foreach($key as $k){
-					$r[$k] = $row[$k];
-				    	}
-				    }
-				} else {
-				    	$r["type"]="objects";
-					$r["kind"]="unknow";
-					$r["val"]=$d;
+				// output data of each row
+				while($row = $result->fetch_assoc()) {
+					$res[$row["type"]][] =array("object" => $row["object"], "value"=>$d);
 				}
-			}else{
-	
+			} else {
+				$res["objects"][] = array("object" => null, "value"=>$d);
+			}
+
+		}
+
+		return $res;
+	}
+
+	private function getAction($object_id){
+		$sql = "SELECT * FROM actions where id='$object_id'";
+
+		$result = $this->db->select($sql);
+		if ($result->num_rows > 0) {
+			// output data of each row
+			while($row = $result->fetch_assoc()) {
+				return array("object" => $object_id, "action"=>$row["action"]);
 			}
 		}
 
-		$conn->close();
-		return json_encode($res);
-		
-
+		return false;
 	}
 
 
