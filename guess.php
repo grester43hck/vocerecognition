@@ -37,7 +37,7 @@ class GuessBall{
 		$res = array("action"=>array(), "objects"=>array());
 		foreach(explode(" ",$this->data) as $d){
 
-			$sql = "SELECT * FROM mono_guess where keyword='$d'";
+			$sql = "SELECT object, type, action, count() as rel FROM mono_guess where keyword='$d' group by object, type, action";
 
 			$result = $this->db->select($sql);
 			if ($result->num_rows > 0) {
